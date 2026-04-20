@@ -1,0 +1,84 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Target environment'
+        required: true
+        default: 'staging'
+        type: choice
+        options: [staging, production]
+
+concurrency:
+  group: deploy-${{ github.event.inputs.environment || 'staging' }}
+  cancel-in-progress: false
+
+env:
+  AWS_REGION: eu-west-3
+  NODE_VERSION: '20.11.0'
+  PNPM_VERSION: '8.15.5'
+
+jobs:
+  docker-api:
+    name: Build & Push API image
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    permissions:
+      id-token: write
+      contents: read
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ secrets.AWS_DEPLOY_ROLE_ARN }}
+          aws-region: ${{ env.AWS_REGION }}
+
+      - uses: aws-actions/amazon-ecr-login@v2
+        id: ecr
+
+      - uses: docker/setup-buildx-action@v3
+
+      - uses: docker/build-push-action@v5
+        with:
+          context: .
+          file: infrastructure/docker/Dockerfile.api
+          push: true
+          tags: |
+            ${{ steps.ecr.outputs.registry }}/ecopye-api:${{ github.sha }}
+            ${{ steps.ecr.outputs.registry }}/ecopye-api:latest
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Force ECS service redeploy
+        run: |
+          aws ecs update-service \
+            --cluster ecopye-${{ github.event.inputs.environment || 'staging' }} \
+            --service api \
+            --force-new-deployment
+
+  web-vercel:
+    name: Deploy Web (Vercel)
+    runs-on: ubuntu-latest
+    environment: ${{ github.event.inputs.environment || 'staging' }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Deploy to Vercel
+        run: pnpm dlx vercel --prod --token=${{ secrets.VERCEL_TOKEN }} --yes
+        working-directory: apps/web
+        env:
+          VERCEL_ORG_ID: ${{ secrets.VERCEL_ORG_ID }}
+          VERCEL_PROJECT_ID: ${{ secrets.VERCEL_PROJECT_ID_WEB }}

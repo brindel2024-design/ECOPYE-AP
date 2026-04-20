@@ -1,0 +1,40 @@
+{
+  "$schema": "./node_modules/nx/schemas/nx-schema.json",
+  "namedInputs": {
+    "default": ["{projectRoot}/**/*", "sharedGlobals"],
+    "production": [
+      "default",
+      "!{projectRoot}/.eslintrc.json",
+      "!{projectRoot}/**/*.spec.{ts,tsx}",
+      "!{projectRoot}/**/*.test.{ts,tsx}",
+      "!{projectRoot}/tsconfig.spec.json",
+      "!{projectRoot}/jest.config.{js,ts}"
+    ],
+    "sharedGlobals": [
+      "{workspaceRoot}/tsconfig.base.json",
+      "{workspaceRoot}/nx.json"
+    ]
+  },
+  "targetDefaults": {
+    "build": {
+      "cache": true,
+      "dependsOn": ["^build"],
+      "inputs": ["production", "^production"]
+    },
+    "lint": {
+      "cache": true,
+      "inputs": ["default", "{workspaceRoot}/.eslintrc.json"]
+    },
+    "test": {
+      "cache": true,
+      "inputs": ["default", "^production"]
+    },
+    "typecheck": {
+      "cache": true,
+      "inputs": ["default", "^production"]
+    }
+  },
+  "defaultBase": "main",
+  "parallel": 10,
+  "useInferencePlugins": false
+}

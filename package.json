@@ -1,0 +1,43 @@
+{
+  "name": "ecopye",
+  "version": "0.1.0",
+  "private": true,
+  "description": "ECOPYE — Plateforme de paiement mobile algérienne",
+  "workspaces": [
+    "apps/*",
+    "packages/services/*",
+    "packages/shared/*",
+    "packages/ui"
+  ],
+  "scripts": {
+    "dev": "nx run-many --target=dev --all --parallel=10",
+    "build": "nx run-many --target=build --all",
+    "lint": "nx run-many --target=lint --all",
+    "test": "nx run-many --target=test --all",
+    "test:e2e": "nx run-many --target=e2e --all",
+    "typecheck": "nx run-many --target=typecheck --all",
+    "format": "prettier --write \"**/*.{ts,tsx,js,jsx,json,md}\"",
+    "docker:up": "docker compose -f infrastructure/docker/docker-compose.yml up -d",
+    "docker:down": "docker compose -f infrastructure/docker/docker-compose.yml down",
+    "db:generate": "pnpm --filter @ecopye/database prisma generate",
+    "db:migrate": "pnpm --filter @ecopye/database prisma migrate dev",
+    "db:seed": "pnpm --filter @ecopye/database tsx prisma/seed.ts",
+    "db:studio": "pnpm --filter @ecopye/database prisma studio"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@typescript-eslint/eslint-plugin": "^7.0.0",
+    "@typescript-eslint/parser": "^7.0.0",
+    "eslint": "^8.57.0",
+    "eslint-config-prettier": "^9.1.0",
+    "nx": "^18.0.0",
+    "prettier": "^3.2.5",
+    "tsx": "^4.7.0",
+    "typescript": "^5.4.0"
+  },
+  "engines": {
+    "node": ">=20.0.0",
+    "pnpm": ">=8.0.0"
+  },
+  "packageManager": "pnpm@8.15.0"
+}

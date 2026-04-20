@@ -1,0 +1,11 @@
+node_modules/
+ios/Pods/
+ios/build/
+android/.gradle/
+android/build/
+android/app/build/
+*.keystore
+!debug.keystore
+*.log
+.env
+.env.local

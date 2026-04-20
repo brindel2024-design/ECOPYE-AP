@@ -1,0 +1,37 @@
+version: 2
+updates:
+  - package-ecosystem: 'npm'
+    directory: '/'
+    schedule:
+      interval: 'weekly'
+      day: 'monday'
+    open-pull-requests-limit: 10
+    groups:
+      fastify:
+        patterns: ['fastify', '@fastify/*']
+      prisma:
+        patterns: ['prisma', '@prisma/*']
+      react:
+        patterns: ['react', 'react-dom', 'react-native', '@react-native/*', '@react-navigation/*']
+      next:
+        patterns: ['next', 'eslint-config-next']
+      dev:
+        dependency-type: 'development'
+    commit-message:
+      prefix: 'chore(deps)'
+      include: 'scope'
+    ignore:
+      - dependency-name: '*'
+        update-types: ['version-update:semver-major']
+
+  - package-ecosystem: 'github-actions'
+    directory: '/'
+    schedule: { interval: 'monthly' }
+    commit-message:
+      prefix: 'ci'
+
+  - package-ecosystem: 'docker'
+    directory: '/infrastructure/docker'
+    schedule: { interval: 'monthly' }
+    commit-message:
+      prefix: 'chore(docker)'

@@ -1,0 +1,80 @@
+# Dependencies
+node_modules/
+.pnp
+.pnp.js
+.yarn/install-state.gz
+
+# Builds
+dist/
+build/
+out/
+.next/
+.nx/cache
+.nx/workspace-data
+*.tsbuildinfo
+
+# Environment
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Secrets
+secrets/
+*.pem
+*.key
+*.p8
+!*.example.pem
+
+# Prisma generated
+packages/shared/database/src/generated/
+**/prisma/migrations/dev/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# IDE
+.idea/
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
+*.swp
+*.swo
+.DS_Store
+
+# Coverage
+coverage/
+.nyc_output/
+
+# Testing
+playwright-report/
+playwright/.cache/
+test-results/
+
+# Native
+ios/Pods/
+ios/build/
+android/build/
+android/.gradle/
+android/app/build/
+*.xcuserstate
+
+# Terraform
+**/.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+
+# Docker
+.docker/volumes/
+
+# OS
+Thumbs.db
+ehthumbs.db
+Desktop.ini

@@ -1,0 +1,923 @@
+// ============================================================================
+// ECOPYE — Prisma Schema
+// Target: PostgreSQL 16
+// Conventions:
+//  - UUID v4 primary keys (@default(uuid()))
+//  - Soft delete via deletedAt (except immutable Transaction & LedgerEntry)
+//  - createdAt / updatedAt everywhere
+//  - JSONB metadata columns (Prisma Json)
+//  - Composite & partial indexes for hot paths
+// ============================================================================
+
+generator client {
+  provider      = "prisma-client-js"
+  output        = "../src/generated/client"
+  binaryTargets = ["native", "debian-openssl-3.0.x", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ============================================================================
+// ENUMS
+// ============================================================================
+
+enum UserStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  BLOCKED
+  DELETED
+}
+
+enum KycLevel {
+  LEVEL_0 // Unverified — read-only
+  LEVEL_1 // Phone + basic info — 10 000 DZD plafond
+  LEVEL_2 // ID + selfie — 200 000 DZD plafond
+  LEVEL_3 // Full KYC + proof of address — 1 000 000+ DZD plafond
+}
+
+enum KycDocumentType {
+  NATIONAL_ID
+  PASSPORT
+  DRIVER_LICENSE
+  SELFIE
+  PROOF_OF_ADDRESS
+  PROOF_OF_INCOME
+  BUSINESS_LICENSE
+  TAX_CERTIFICATE
+}
+
+enum KycDocumentStatus {
+  UPLOADED
+  PROCESSING
+  APPROVED
+  REJECTED
+  EXPIRED
+}
+
+enum WalletType {
+  PERSONAL
+  MERCHANT
+  AGENT
+  ESCROW
+  SYSTEM
+}
+
+enum WalletStatus {
+  ACTIVE
+  FROZEN
+  CLOSED
+}
+
+enum TransactionType {
+  P2P_TRANSFER
+  QR_PAYMENT
+  BILL_PAYMENT
+  MOBILE_RECHARGE
+  CAGNOTTE_CONTRIBUTION
+  CAGNOTTE_PAYOUT
+  MERCHANT_SETTLEMENT
+  AGENT_CASH_IN
+  AGENT_CASH_OUT
+  BEA_TRANSFER_IN
+  BEA_TRANSFER_OUT
+  REFUND
+  FEE
+  ADJUSTMENT
+}
+
+enum TransactionStatus {
+  PENDING
+  AUTHORIZED
+  PROCESSING
+  COMPLETED
+  FAILED
+  REVERSED
+  CANCELLED
+}
+
+enum LedgerSide {
+  DEBIT
+  CREDIT
+}
+
+enum MerchantType {
+  INDIVIDUAL
+  COMPANY
+  ASSOCIATION
+  GOVERNMENT
+}
+
+enum MerchantStatus {
+  PENDING_REVIEW
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+}
+
+enum TerminalType {
+  STATIC_QR
+  DYNAMIC_QR
+  POS
+  ONLINE
+}
+
+enum AgentStatus {
+  PENDING
+  ACTIVE
+  SUSPENDED
+  TERMINATED
+}
+
+enum CashOperationType {
+  CASH_IN
+  CASH_OUT
+}
+
+enum CashOperationStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum BillProvider {
+  SONELGAZ
+  ALGERIE_TELECOM
+  DJEZZY
+  OOREDOO
+  MOBILIS
+  SEAAL
+  CNAS
+}
+
+enum CagnotteStatus {
+  ACTIVE
+  COMPLETED
+  CANCELLED
+  PAID_OUT
+}
+
+enum NotificationChannel {
+  PUSH
+  SMS
+  EMAIL
+  IN_APP
+}
+
+enum NotificationStatus {
+  PENDING
+  SENT
+  DELIVERED
+  FAILED
+  READ
+}
+
+enum AlertSeverity {
+  LOW
+  MEDIUM
+  HIGH
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  INVESTIGATING
+  RESOLVED
+  FALSE_POSITIVE
+}
+
+enum SanctionsResult {
+  CLEAR
+  POTENTIAL_MATCH
+  CONFIRMED_MATCH
+}
+
+enum AdminRole {
+  SUPER_ADMIN
+  COMPLIANCE_OFFICER
+  SUPPORT_AGENT
+  FINANCE
+  READONLY
+}
+
+enum OtpPurpose {
+  REGISTRATION
+  LOGIN
+  TRANSACTION
+  PIN_RESET
+  PHONE_CHANGE
+}
+
+enum OtpStatus {
+  PENDING
+  VERIFIED
+  EXPIRED
+  FAILED
+}
+
+// ============================================================================
+// USERS & PROFILES
+// ============================================================================
+
+model User {
+  id                String     @id @default(uuid()) @db.Uuid
+  phoneNumber       String     @unique @db.VarChar(20)
+  phoneVerifiedAt   DateTime?
+  email             String?    @unique @db.Citext
+  emailVerifiedAt   DateTime?
+  pinHash           String     @db.VarChar(255)
+  pinUpdatedAt      DateTime   @default(now())
+  status            UserStatus @default(PENDING)
+  kycLevel          KycLevel   @default(LEVEL_0)
+  twoFactorEnabled  Boolean    @default(false)
+  lastLoginAt       DateTime?
+  lastLoginIp       String?    @db.Inet
+  failedLoginCount  Int        @default(0)
+  lockedUntil       DateTime?
+  locale            String     @default("fr-DZ") @db.VarChar(10)
+  createdAt         DateTime   @default(now())
+  updatedAt         DateTime   @updatedAt
+  deletedAt         DateTime?
+
+  profile           Profile?
+  wallets           Wallet[]
+  devices           Device[]
+  sessions          Session[]
+  kycDocuments      KycDocument[]
+  kycRecords        KycRecord[]
+  sentTransactions  Transaction[] @relation("SentTransactions")
+  recvTransactions  Transaction[] @relation("ReceivedTransactions")
+  otpCodes          OtpCode[]
+  notifications     Notification[]
+  cagnottesOwned    Cagnotte[]
+  contributions     CagnotteContribution[]
+  merchantMembers   MerchantMember[]
+  agentProfile      Agent?
+  alerts            Alert[]
+  auditTrail        AuditLog[]
+
+  @@index([status, createdAt(sort: Desc)])
+  @@index([kycLevel])
+  @@index([deletedAt])
+  @@map("users")
+}
+
+model Profile {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @unique @db.Uuid
+  firstName        String    @db.VarChar(100)
+  lastName         String    @db.VarChar(100)
+  dateOfBirth      DateTime? @db.Date
+  gender           String?   @db.VarChar(10)
+  nationalId       String?   @unique @db.VarChar(50) // Chiffré au repos (AES-256-GCM)
+  addressLine      String?   @db.VarChar(255)
+  city             String?   @db.VarChar(100)
+  wilaya           String?   @db.VarChar(50) // 58 wilayas
+  postalCode       String?   @db.VarChar(10)
+  country          String    @default("DZ") @db.VarChar(2)
+  profession       String?   @db.VarChar(100)
+  avatarUrl        String?
+  metadata         Json?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([wilaya])
+  @@map("profiles")
+}
+
+// ============================================================================
+// KYC
+// ============================================================================
+
+model KycRecord {
+  id                  String    @id @default(uuid()) @db.Uuid
+  userId              String    @db.Uuid
+  requestedLevel      KycLevel
+  resolvedLevel       KycLevel?
+  provider            String    @default("onfido") @db.VarChar(50)
+  providerReferenceId String?   @db.VarChar(100)
+  status              KycDocumentStatus @default(PROCESSING)
+  rejectionReason     String?
+  riskScore           Decimal?  @db.Decimal(5, 2)
+  startedAt           DateTime  @default(now())
+  completedAt         DateTime?
+  metadata            Json?
+
+  user                User      @relation(fields: [userId], references: [id])
+  documents           KycDocument[]
+
+  @@index([userId, status])
+  @@index([providerReferenceId])
+  @@map("kyc_records")
+}
+
+model KycDocument {
+  id              String            @id @default(uuid()) @db.Uuid
+  userId          String            @db.Uuid
+  kycRecordId     String?           @db.Uuid
+  type            KycDocumentType
+  status          KycDocumentStatus @default(UPLOADED)
+  s3Key           String            // Bucket KYC chiffré
+  checksum        String            @db.VarChar(128)
+  issuedAt        DateTime?
+  expiresAt       DateTime?
+  verifiedAt      DateTime?
+  verifiedBy      String?           @db.Uuid
+  rejectionReason String?
+  metadata        Json?
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+
+  user            User              @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kycRecord       KycRecord?        @relation(fields: [kycRecordId], references: [id])
+
+  @@index([userId, type])
+  @@index([expiresAt])
+  @@map("kyc_documents")
+}
+
+// ============================================================================
+// WALLETS & BALANCES
+// ============================================================================
+
+model Wallet {
+  id                String       @id @default(uuid()) @db.Uuid
+  userId            String?      @db.Uuid
+  merchantId        String?      @db.Uuid
+  agentId           String?      @db.Uuid
+  type              WalletType
+  status            WalletStatus @default(ACTIVE)
+  currency          String       @default("DZD") @db.VarChar(3)
+  /// Balances stored as BigInt (centimes) for lossless arithmetic
+  balance           BigInt       @default(0)
+  availableBalance  BigInt       @default(0)
+  reservedBalance   BigInt       @default(0)
+  dailyLimit        BigInt       @default(1000000) // 10 000 DZD (LEVEL_1)
+  monthlyLimit      BigInt       @default(30000000) // 300 000 DZD (LEVEL_1)
+  dailySpent        BigInt       @default(0)
+  monthlySpent      BigInt       @default(0)
+  lastLimitResetAt  DateTime     @default(now())
+  version           Int          @default(0) // Optimistic locking
+  metadata          Json?
+  createdAt         DateTime     @default(now())
+  updatedAt         DateTime     @updatedAt
+  closedAt          DateTime?
+
+  user              User?        @relation(fields: [userId], references: [id])
+  merchant          Merchant?    @relation(fields: [merchantId], references: [id])
+  agent             Agent?       @relation(fields: [agentId], references: [id])
+  ledgerEntries     LedgerEntry[]
+
+  @@index([userId])
+  @@index([merchantId])
+  @@index([agentId])
+  @@index([status])
+  @@map("wallets")
+}
+
+// ============================================================================
+// TRANSACTIONS & LEDGER (IMMUTABLES)
+// ============================================================================
+
+model Transaction {
+  id                String            @id @default(uuid()) @db.Uuid
+  reference         String            @unique @db.VarChar(32) // ECP-2026-XXXXX
+  idempotencyKey    String            @unique @db.VarChar(128)
+  type              TransactionType
+  status            TransactionStatus @default(PENDING)
+  currency          String            @default("DZD") @db.VarChar(3)
+  amount            BigInt
+  fee               BigInt            @default(0)
+  tax               BigInt            @default(0)
+  exchangeRate      Decimal?          @db.Decimal(18, 8)
+  originalAmount    BigInt?
+  originalCurrency  String?           @db.VarChar(3)
+
+  senderId          String?           @db.Uuid
+  senderWalletId    String?           @db.Uuid
+  receiverId        String?           @db.Uuid
+  receiverWalletId  String?           @db.Uuid
+  merchantId        String?           @db.Uuid
+  agentId           String?           @db.Uuid
+
+  description       String?           @db.VarChar(255)
+  externalReference String?           @db.VarChar(128)
+  metadata          Json?
+
+  authorizedAt      DateTime?
+  completedAt       DateTime?
+  failedAt          DateTime?
+  failureCode       String?           @db.VarChar(50)
+  failureReason     String?
+
+  createdAt         DateTime          @default(now())
+  /// No updatedAt: row is append-only. Status changes go into TransactionLog.
+
+  sender            User?             @relation("SentTransactions", fields: [senderId], references: [id])
+  receiver          User?             @relation("ReceivedTransactions", fields: [receiverId], references: [id])
+  merchant          Merchant?         @relation(fields: [merchantId], references: [id])
+  agent             Agent?            @relation(fields: [agentId], references: [id])
+  ledgerEntries     LedgerEntry[]
+  logs              TransactionLog[]
+  screenings        SanctionsScreening[]
+
+  @@index([senderId, createdAt(sort: Desc)])
+  @@index([receiverId, createdAt(sort: Desc)])
+  @@index([merchantId, createdAt(sort: Desc)])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([type, createdAt(sort: Desc)])
+  @@index([reference])
+  @@map("transactions")
+}
+
+model TransactionLog {
+  id            String            @id @default(uuid()) @db.Uuid
+  transactionId String            @db.Uuid
+  previousStatus TransactionStatus?
+  newStatus     TransactionStatus
+  actorId       String?           @db.Uuid
+  actorType     String            @db.VarChar(20) // user | system | admin
+  reason        String?
+  metadata      Json?
+  createdAt     DateTime          @default(now())
+
+  transaction   Transaction       @relation(fields: [transactionId], references: [id])
+
+  @@index([transactionId, createdAt])
+  @@map("transaction_logs")
+}
+
+/// Double-entry ledger — append-only, every transaction must have balanced debit/credit
+model LedgerEntry {
+  id             String      @id @default(uuid()) @db.Uuid
+  transactionId  String      @db.Uuid
+  walletId       String      @db.Uuid
+  side           LedgerSide
+  amount         BigInt
+  currency       String      @default("DZD") @db.VarChar(3)
+  runningBalance BigInt // Snapshot after this entry
+  sequence       BigInt      @default(autoincrement())
+  metadata       Json?
+  createdAt      DateTime    @default(now())
+
+  transaction    Transaction @relation(fields: [transactionId], references: [id])
+  wallet         Wallet      @relation(fields: [walletId], references: [id])
+
+  @@index([transactionId])
+  @@index([walletId, createdAt(sort: Desc)])
+  @@index([sequence])
+  @@map("ledger_entries")
+}
+
+// ============================================================================
+// MERCHANTS
+// ============================================================================
+
+model Merchant {
+  id                 String         @id @default(uuid()) @db.Uuid
+  legalName          String         @db.VarChar(200)
+  tradingName        String         @db.VarChar(200)
+  type               MerchantType
+  status             MerchantStatus @default(PENDING_REVIEW)
+  mcc                String?        @db.VarChar(4) // Merchant Category Code
+  taxId              String?        @unique @db.VarChar(50) // NIF
+  commercialRegister String?        @unique @db.VarChar(50) // RC
+  commissionBps      Int            @default(120) // 1.20 %
+  settlementCycle    String         @default("T+1") @db.VarChar(10)
+  wilaya             String?        @db.VarChar(50)
+  address            String?        @db.VarChar(255)
+  contactEmail       String?        @db.Citext
+  contactPhone       String?        @db.VarChar(20)
+  logoUrl            String?
+  metadata           Json?
+  createdAt          DateTime       @default(now())
+  updatedAt          DateTime       @updatedAt
+  activatedAt        DateTime?
+  suspendedAt        DateTime?
+  deletedAt          DateTime?
+
+  wallets            Wallet[]
+  members            MerchantMember[]
+  terminals          Terminal[]
+  transactions       Transaction[]
+  settlements        Settlement[]
+
+  @@index([status])
+  @@index([type])
+  @@index([wilaya])
+  @@map("merchants")
+}
+
+model MerchantMember {
+  id         String   @id @default(uuid()) @db.Uuid
+  merchantId String   @db.Uuid
+  userId     String   @db.Uuid
+  role       String   @default("STAFF") @db.VarChar(20) // OWNER | ADMIN | STAFF | VIEWER
+  createdAt  DateTime @default(now())
+
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  user       User     @relation(fields: [userId], references: [id])
+
+  @@unique([merchantId, userId])
+  @@map("merchant_members")
+}
+
+model Terminal {
+  id          String       @id @default(uuid()) @db.Uuid
+  merchantId  String       @db.Uuid
+  type        TerminalType
+  label       String       @db.VarChar(100)
+  qrPayload   String?      @db.Text
+  deviceModel String?      @db.VarChar(100)
+  lastSeenAt  DateTime?
+  isActive    Boolean      @default(true)
+  metadata    Json?
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @updatedAt
+
+  merchant    Merchant     @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+
+  @@index([merchantId, isActive])
+  @@map("terminals")
+}
+
+model Settlement {
+  id              String   @id @default(uuid()) @db.Uuid
+  merchantId      String   @db.Uuid
+  periodStart     DateTime
+  periodEnd       DateTime
+  grossAmount     BigInt
+  commissionAmount BigInt
+  taxAmount       BigInt   @default(0)
+  netAmount       BigInt
+  transactionCount Int
+  status          String   @default("PENDING") @db.VarChar(20) // PENDING | PAID | FAILED
+  paidAt          DateTime?
+  bankReference   String?  @db.VarChar(100)
+  metadata        Json?
+  createdAt       DateTime @default(now())
+
+  merchant        Merchant @relation(fields: [merchantId], references: [id])
+
+  @@index([merchantId, periodEnd(sort: Desc)])
+  @@index([status])
+  @@map("settlements")
+}
+
+// ============================================================================
+// AGENTS (réseau physique cash-in / cash-out)
+// ============================================================================
+
+model Agent {
+  id               String      @id @default(uuid()) @db.Uuid
+  userId           String      @unique @db.Uuid
+  businessName     String      @db.VarChar(200)
+  licenseNumber    String      @unique @db.VarChar(50)
+  status           AgentStatus @default(PENDING)
+  wilaya           String      @db.VarChar(50)
+  address          String      @db.VarChar(255)
+  latitude         Decimal?    @db.Decimal(10, 7)
+  longitude        Decimal?    @db.Decimal(10, 7)
+  commissionBps    Int         @default(50) // 0.50 %
+  floatBalance     BigInt      @default(0) // Liquidité disponible
+  dailyCapacity    BigInt      @default(500000000) // 5 000 000 DZD
+  rating           Decimal?    @db.Decimal(3, 2)
+  metadata         Json?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+
+  user             User        @relation(fields: [userId], references: [id])
+  wallets          Wallet[]
+  cashOperations   CashOperation[]
+  transactions     Transaction[]
+
+  @@index([status])
+  @@index([wilaya, status])
+  @@map("agents")
+}
+
+model CashOperation {
+  id            String              @id @default(uuid()) @db.Uuid
+  agentId       String              @db.Uuid
+  userId        String              @db.Uuid
+  type          CashOperationType
+  status        CashOperationStatus @default(PENDING)
+  amount        BigInt
+  fee           BigInt              @default(0)
+  transactionId String?             @db.Uuid
+  code          String              @unique @db.VarChar(8) // Code à communiquer au comptoir
+  codeExpiresAt DateTime
+  completedAt   DateTime?
+  metadata      Json?
+  createdAt     DateTime            @default(now())
+
+  agent         Agent               @relation(fields: [agentId], references: [id])
+
+  @@index([agentId, status])
+  @@index([userId, createdAt(sort: Desc)])
+  @@map("cash_operations")
+}
+
+// ============================================================================
+// BILLS & RECHARGES
+// ============================================================================
+
+model BillPayment {
+  id             String        @id @default(uuid()) @db.Uuid
+  userId         String        @db.Uuid
+  transactionId  String        @unique @db.Uuid
+  provider       BillProvider
+  accountNumber  String        @db.VarChar(50)
+  billReference  String?       @db.VarChar(100)
+  amount         BigInt
+  fee            BigInt        @default(0)
+  providerStatus String?       @db.VarChar(50)
+  providerResponse Json?
+  receiptUrl     String?
+  createdAt      DateTime      @default(now())
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([provider, createdAt(sort: Desc)])
+  @@map("bill_payments")
+}
+
+// ============================================================================
+// CAGNOTTES (tontines / cagnottes collectives)
+// ============================================================================
+
+model Cagnotte {
+  id            String         @id @default(uuid()) @db.Uuid
+  ownerId       String         @db.Uuid
+  title         String         @db.VarChar(200)
+  description   String?        @db.Text
+  targetAmount  BigInt
+  currentAmount BigInt         @default(0)
+  currency      String         @default("DZD") @db.VarChar(3)
+  status        CagnotteStatus @default(ACTIVE)
+  coverUrl      String?
+  slug          String         @unique @db.VarChar(100)
+  deadline      DateTime?
+  isPublic      Boolean        @default(true)
+  metadata      Json?
+  createdAt     DateTime       @default(now())
+  updatedAt     DateTime       @updatedAt
+  completedAt   DateTime?
+
+  owner         User           @relation(fields: [ownerId], references: [id])
+  contributions CagnotteContribution[]
+
+  @@index([ownerId])
+  @@index([status, createdAt(sort: Desc)])
+  @@index([slug])
+  @@map("cagnottes")
+}
+
+model CagnotteContribution {
+  id            String    @id @default(uuid()) @db.Uuid
+  cagnotteId    String    @db.Uuid
+  contributorId String?   @db.Uuid // null si anonyme
+  amount        BigInt
+  message       String?   @db.VarChar(500)
+  isAnonymous   Boolean   @default(false)
+  transactionId String    @unique @db.Uuid
+  createdAt     DateTime  @default(now())
+
+  cagnotte      Cagnotte  @relation(fields: [cagnotteId], references: [id])
+  contributor   User?     @relation(fields: [contributorId], references: [id])
+
+  @@index([cagnotteId, createdAt(sort: Desc)])
+  @@map("cagnotte_contributions")
+}
+
+// ============================================================================
+// DEVICES & SESSIONS
+// ============================================================================
+
+model Device {
+  id              String    @id @default(uuid()) @db.Uuid
+  userId          String    @db.Uuid
+  fingerprint     String    @db.VarChar(128)
+  platform        String    @db.VarChar(20) // ios | android | web
+  osVersion       String?   @db.VarChar(50)
+  appVersion      String?   @db.VarChar(50)
+  model           String?   @db.VarChar(100)
+  pushToken       String?   @db.VarChar(255)
+  pushProvider    String?   @db.VarChar(10) // fcm | apns
+  isTrusted       Boolean   @default(false)
+  trustedAt       DateTime?
+  lastSeenAt      DateTime  @default(now())
+  lastIp          String?   @db.Inet
+  createdAt       DateTime  @default(now())
+
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  sessions        Session[]
+
+  @@unique([userId, fingerprint])
+  @@index([userId])
+  @@map("devices")
+}
+
+model Session {
+  id               String    @id @default(uuid()) @db.Uuid
+  userId           String    @db.Uuid
+  deviceId         String?   @db.Uuid
+  refreshTokenHash String    @unique @db.VarChar(255)
+  ip               String?   @db.Inet
+  userAgent        String?   @db.VarChar(500)
+  issuedAt         DateTime  @default(now())
+  expiresAt        DateTime
+  revokedAt        DateTime?
+
+  user             User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  device           Device?   @relation(fields: [deviceId], references: [id])
+
+  @@index([userId, revokedAt])
+  @@index([expiresAt])
+  @@map("sessions")
+}
+
+// ============================================================================
+// OTP
+// ============================================================================
+
+model OtpCode {
+  id         String     @id @default(uuid()) @db.Uuid
+  userId     String?    @db.Uuid
+  phoneNumber String    @db.VarChar(20)
+  codeHash   String     @db.VarChar(255)
+  purpose    OtpPurpose
+  status     OtpStatus  @default(PENDING)
+  attempts   Int        @default(0)
+  maxAttempts Int       @default(5)
+  expiresAt  DateTime
+  verifiedAt DateTime?
+  metadata   Json?
+  createdAt  DateTime   @default(now())
+
+  user       User?      @relation(fields: [userId], references: [id])
+
+  @@index([phoneNumber, purpose, status])
+  @@index([expiresAt])
+  @@map("otp_codes")
+}
+
+// ============================================================================
+// NOTIFICATIONS
+// ============================================================================
+
+model Notification {
+  id        String              @id @default(uuid()) @db.Uuid
+  userId    String              @db.Uuid
+  channel   NotificationChannel
+  status    NotificationStatus  @default(PENDING)
+  title     String              @db.VarChar(200)
+  body      String              @db.Text
+  data      Json?
+  sentAt    DateTime?
+  deliveredAt DateTime?
+  readAt    DateTime?
+  failedAt  DateTime?
+  failureReason String?
+  createdAt DateTime            @default(now())
+
+  user      User                @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt(sort: Desc)])
+  @@index([status, channel])
+  @@map("notifications")
+}
+
+// ============================================================================
+// COMPLIANCE — alerts, sanctions screening, audit trail
+// ============================================================================
+
+model Alert {
+  id          String        @id @default(uuid()) @db.Uuid
+  userId      String?       @db.Uuid
+  ruleCode    String        @db.VarChar(50) // VELOCITY_HIGH | SMURFING | SANCTION_HIT | ...
+  severity    AlertSeverity
+  status      AlertStatus   @default(OPEN)
+  title       String        @db.VarChar(200)
+  description String?       @db.Text
+  context     Json?
+  assigneeId  String?       @db.Uuid
+  resolvedAt  DateTime?
+  resolutionNote String?    @db.Text
+  createdAt   DateTime      @default(now())
+
+  user        User?         @relation(fields: [userId], references: [id])
+
+  @@index([status, severity, createdAt(sort: Desc)])
+  @@index([ruleCode])
+  @@map("alerts")
+}
+
+model SanctionsScreening {
+  id             String            @id @default(uuid()) @db.Uuid
+  transactionId  String?           @db.Uuid
+  targetType     String            @db.VarChar(20) // user | counterparty | merchant
+  targetRef      String            @db.VarChar(255)
+  listSource     String            @db.VarChar(20) // OFAC | UN | EU | INTERNAL
+  result         SanctionsResult
+  matchScore     Decimal?          @db.Decimal(5, 2)
+  details        Json?
+  reviewedBy     String?           @db.Uuid
+  reviewedAt     DateTime?
+  createdAt      DateTime          @default(now())
+
+  transaction    Transaction?      @relation(fields: [transactionId], references: [id])
+
+  @@index([targetRef])
+  @@index([result, createdAt(sort: Desc)])
+  @@map("sanctions_screenings")
+}
+
+// ============================================================================
+// ADMINS & AUDIT
+// ============================================================================
+
+model Admin {
+  id          String    @id @default(uuid()) @db.Uuid
+  email       String    @unique @db.Citext
+  firstName   String    @db.VarChar(100)
+  lastName    String    @db.VarChar(100)
+  passwordHash String   @db.VarChar(255)
+  role        AdminRole @default(READONLY)
+  isActive    Boolean   @default(true)
+  mfaEnabled  Boolean   @default(true)
+  mfaSecret   String?   @db.VarChar(255)
+  lastLoginAt DateTime?
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  auditLogs   AuditLog[] @relation("AdminActor")
+
+  @@index([role, isActive])
+  @@map("admins")
+}
+
+/// Immutable audit trail — 10 years retention per Loi 23-09
+model AuditLog {
+  id          String    @id @default(uuid()) @db.Uuid
+  actorUserId String?   @db.Uuid
+  actorAdminId String?  @db.Uuid
+  action      String    @db.VarChar(100)
+  entity      String    @db.VarChar(100)
+  entityId    String?   @db.VarChar(100)
+  ip          String?   @db.Inet
+  userAgent   String?   @db.VarChar(500)
+  before      Json?
+  after       Json?
+  metadata    Json?
+  createdAt   DateTime  @default(now())
+
+  actorUser   User?     @relation(fields: [actorUserId], references: [id])
+  actorAdmin  Admin?    @relation("AdminActor", fields: [actorAdminId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([actorUserId, createdAt(sort: Desc)])
+  @@index([actorAdminId, createdAt(sort: Desc)])
+  @@index([createdAt(sort: Desc)])
+  @@map("audit_logs")
+}
+
+// ============================================================================
+// FX / BEA
+// ============================================================================
+
+model FxRate {
+  id            String   @id @default(uuid()) @db.Uuid
+  baseCurrency  String   @db.VarChar(3)
+  quoteCurrency String   @db.VarChar(3)
+  rate          Decimal  @db.Decimal(18, 8)
+  source        String   @db.VarChar(50) // BEA | ECB | INTERNAL
+  validFrom     DateTime
+  validUntil    DateTime?
+  createdAt     DateTime @default(now())
+
+  @@unique([baseCurrency, quoteCurrency, validFrom])
+  @@index([baseCurrency, quoteCurrency, validFrom(sort: Desc)])
+  @@map("fx_rates")
+}
+
+model BeaReference {
+  id             String   @id @default(uuid()) @db.Uuid
+  transactionId  String   @unique @db.Uuid
+  swiftMessageId String   @unique @db.VarChar(50)
+  uetr           String?  @unique @db.VarChar(50)
+  correspondent  String?  @db.VarChar(100)
+  status         String   @default("SUBMITTED") @db.VarChar(30)
+  payload        Json
+  response       Json?
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  @@index([status])
+  @@map("bea_references")
+}

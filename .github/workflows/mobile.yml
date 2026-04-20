@@ -1,0 +1,79 @@
+name: Mobile
+
+on:
+  push:
+    branches: [main]
+    paths: ['apps/mobile/**', 'packages/shared/**']
+  pull_request:
+    paths: ['apps/mobile/**', 'packages/shared/**']
+
+env:
+  NODE_VERSION: '20.11.0'
+  PNPM_VERSION: '8.15.5'
+
+jobs:
+  android:
+    name: Android Release Bundle
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck mobile
+        run: pnpm --filter @ecopye/mobile typecheck
+
+      - name: Gradle bundle
+        if: github.event_name == 'push'
+        working-directory: apps/mobile/android
+        run: ./gradlew bundleRelease --no-daemon
+
+      - uses: actions/upload-artifact@v4
+        if: github.event_name == 'push'
+        with:
+          name: ecopye-android-aab
+          path: apps/mobile/android/app/build/outputs/bundle/release/*.aab
+          retention-days: 30
+
+  ios:
+    name: iOS Build Check
+    runs-on: macos-14
+    timeout-minutes: 45
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v3
+        with: { version: '${{ env.PNPM_VERSION }}' }
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: 'pnpm'
+
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @ecopye/mobile typecheck
+
+      - name: Pod install
+        working-directory: apps/mobile/ios
+        run: pod install --repo-update
+
+      - name: xcodebuild (debug, simulator)
+        working-directory: apps/mobile/ios
+        run: |
+          xcodebuild \
+            -workspace ECOPYE.xcworkspace \
+            -scheme ECOPYE \
+            -configuration Debug \
+            -destination 'platform=iOS Simulator,name=iPhone 15' \
+            -quiet \
+            build
