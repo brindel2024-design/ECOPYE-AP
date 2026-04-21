@@ -219,12 +219,10 @@ else
 fi
 pnpm --filter @ecopye/database prisma generate
 pnpm --filter @ecopye/database prisma migrate deploy
-pnpm --filter @ecopye/api build
 pnpm --filter @ecopye/web build
 
 pm2 delete ecopye-api ecopye-web 2>/dev/null || true
-pm2 start apps/api/dist/server.js --name ecopye-api --time --max-memory-restart 1G \
-  --node-args="--enable-source-maps"
+pm2 start "pnpm --filter @ecopye/api start" --name ecopye-api --time --max-memory-restart 1G
 pm2 start "pnpm --filter @ecopye/web start" --name ecopye-web --time --max-memory-restart 1G
 pm2 save
 EOF
@@ -319,7 +317,6 @@ Pour redéployer après un push GitHub :
   sudo -u ${APP_USER} git pull
   sudo -u ${APP_USER} pnpm install --frozen-lockfile
   sudo -u ${APP_USER} pnpm --filter @ecopye/database prisma migrate deploy
-  sudo -u ${APP_USER} pnpm --filter @ecopye/api build
   sudo -u ${APP_USER} pnpm --filter @ecopye/web build
   sudo -u ${APP_USER} pm2 reload ecopye-api ecopye-web
 
