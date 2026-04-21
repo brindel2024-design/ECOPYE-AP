@@ -212,7 +212,11 @@ sudo -u "$APP_USER" bash <<EOF
 set -euo pipefail
 cd "$APP_DIR"
 export COREPACK_ENABLE_DOWNLOAD_PROMPT=0
-pnpm install --frozen-lockfile
+if [[ -f pnpm-lock.yaml ]]; then
+  pnpm install --frozen-lockfile
+else
+  pnpm install --no-frozen-lockfile
+fi
 pnpm --filter @ecopye/database prisma generate
 pnpm --filter @ecopye/database prisma migrate deploy
 pnpm --filter @ecopye/api build
