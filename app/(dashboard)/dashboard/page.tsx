@@ -56,9 +56,16 @@ async function getDashboardData(userId: string) {
   })
 
   return {
-    wallet,
-    recentTransfers,
-    recentPayments,
+    wallet: wallet ? { balance: Number(wallet.balance) } : null,
+    recentTransfers: recentTransfers.map((t) => ({
+      ...t,
+      amount: Number(t.amount),
+      fee: Number(t.fee),
+    })),
+    recentPayments: recentPayments.map((p) => ({
+      ...p,
+      amount: Number(p.amount),
+    })),
     monthlyIn: Number(monthlyTransfersIn._sum.amount || 0),
     monthlyOut: Number(monthlyTransfersOut._sum.amount || 0) + Number(monthlyPayments._sum.amount || 0),
   }
