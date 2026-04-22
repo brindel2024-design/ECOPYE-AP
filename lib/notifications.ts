@@ -1,4 +1,4 @@
-import { NotificationType, AuditAction, AuditStatus } from '@prisma/client'
+import { NotificationType, AuditAction, AuditStatus, Prisma } from '@prisma/client'
 import { db } from '@/lib/db'
 
 interface CreateNotifInput {
@@ -16,7 +16,7 @@ export async function createNotification(input: CreateNotifInput) {
       title: input.title,
       body: input.body,
       type: input.type,
-      data: input.data ?? undefined,
+      data: input.data as Prisma.InputJsonValue ?? undefined,
     },
   })
 }
@@ -36,7 +36,7 @@ export async function createAuditLog(input: {
       resource: input.resource,
       resourceId: input.resourceId,
       status: input.status ?? 'SUCCESS',
-      metadata: input.metadata ?? undefined,
+      metadata: input.metadata as Prisma.InputJsonValue ?? undefined,
     },
   })
 }
