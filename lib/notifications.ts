@@ -16,7 +16,7 @@ export async function createNotification(input: CreateNotifInput) {
       title: input.title,
       body: input.body,
       type: input.type,
-      data: input.data ?? null,
+      data: input.data ?? undefined,
     },
   })
 }
@@ -36,7 +36,7 @@ export async function createAuditLog(input: {
       resource: input.resource,
       resourceId: input.resourceId,
       status: input.status ?? 'SUCCESS',
-      metadata: input.metadata ?? null,
+      metadata: input.metadata ?? undefined,
     },
   })
 }
