@@ -59,8 +59,8 @@ async function getDashboardData(userId: string) {
     wallet,
     recentTransfers,
     recentPayments,
-    monthlyIn: monthlyTransfersIn._sum.amount || 0,
-    monthlyOut: (monthlyTransfersOut._sum.amount || 0) + (monthlyPayments._sum.amount || 0),
+    monthlyIn: Number(monthlyTransfersIn._sum.amount || 0),
+    monthlyOut: Number(monthlyTransfersOut._sum.amount || 0) + Number(monthlyPayments._sum.amount || 0),
   }
 }
 

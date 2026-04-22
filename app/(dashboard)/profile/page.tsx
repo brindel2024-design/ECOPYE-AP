@@ -30,7 +30,7 @@ export default async function ProfilePage() {
         faceEnrolled: !!user.faceDescriptor,
         totpEnabled: user.totpEnabled,
       }}
-      balance={user.wallet?.balance || 0}
+      balance={Number(user.wallet?.balance || 0)}
       txCount={txCount}
     />
   )

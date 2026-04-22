@@ -64,7 +64,7 @@ export default function DashboardClient({
       type: t.senderId === userId ? 'sent' : ('received' as any),
       title: t.senderId === userId ? t.receiver.fullName : t.sender.fullName,
       subtitle: t.description,
-      amount: t.amount,
+      amount: Number(t.amount),
       status: t.status,
       date: t.createdAt,
     })),
@@ -73,7 +73,7 @@ export default function DashboardClient({
       type: 'payment' as const,
       title: p.merchantName,
       subtitle: p.description,
-      amount: p.amount,
+      amount: Number(p.amount),
       status: p.status,
       date: p.createdAt,
     })),
@@ -102,7 +102,7 @@ export default function DashboardClient({
 
       {/* Carte portefeuille */}
       <WalletCard
-        balance={wallet?.balance ?? 0}
+        balance={Number(wallet?.balance ?? 0)}
         ownerName={user.fullName}
         phone={user.phone}
         monthlyIn={monthlyIn}
