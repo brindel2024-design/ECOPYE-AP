@@ -1,0 +1,62 @@
+name: ecopye
+description: Application de paiement électronique algérienne
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.0.0 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  flutter_localizations:
+    sdk: flutter
+
+  # HTTP & API
+  http: ^1.2.0
+  dio: ^5.4.0
+
+  # State management
+  provider: ^6.1.1
+
+  # Storage
+  shared_preferences: ^2.2.2
+  flutter_secure_storage: ^9.0.0
+
+  # Auth & Sécurité
+  local_auth: ^2.2.0
+  crypto: ^3.0.3
+
+  # UI
+  google_fonts: ^6.1.0
+  iconsax: ^0.0.8
+  shimmer: ^3.0.0
+  lottie: ^3.0.0
+
+  # QR Code
+  qr_flutter: ^4.1.0
+  mobile_scanner: ^4.0.0
+
+  # Utils
+  intl: ^0.19.0
+  pin_code_fields: ^8.0.1
+  currency_formatter: ^2.1.0
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  generate: true
+
+  assets:
+    - assets/images/
+
+  fonts:
+    - family: Cairo
+      fonts:
+        - asset: assets/fonts/Cairo-Regular.ttf
+        - asset: assets/fonts/Cairo-Bold.ttf
+          weight: 700

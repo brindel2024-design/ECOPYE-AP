@@ -1,0 +1,45 @@
+version: '3.9'
+
+services:
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:-ecopye123}
+      MYSQL_DATABASE: ecopye_pay
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build: ./backend
+    environment:
+      DATABASE_URL: mysql://root:${MYSQL_ROOT_PASSWORD:-ecopye123}@mysql:3306/ecopye_pay
+      JWT_SECRET: ${JWT_SECRET}
+      FACE_ENCRYPTION_KEY: ${FACE_ENCRYPTION_KEY}
+      FRONTEND_URL: ${FRONTEND_URL:-http://localhost:3000}
+      SMS_PROVIDER: ${SMS_PROVIDER:-console}
+      PORT: 4000
+    ports:
+      - "4000:4000"
+    depends_on:
+      mysql:
+        condition: service_healthy
+    command: sh -c "npx prisma migrate deploy && node src/server.js"
+
+  frontend:
+    build: ./frontend
+    environment:
+      NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-http://localhost:4000}
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+
+volumes:
+  mysql_data:

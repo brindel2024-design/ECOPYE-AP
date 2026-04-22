@@ -1,0 +1,19 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 40" width="160" height="40">
+  <defs>
+    <linearGradient id="w-gold" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#E8A838"/>
+      <stop offset="100%" stop-color="#c98d23"/>
+    </linearGradient>
+  </defs>
+  <rect x="0" y="2" width="36" height="36" rx="10" fill="rgba(255,255,255,0.18)" stroke="rgba(255,255,255,0.35)"/>
+  <path d="M10 12 L24 12 Q26 12 26 14 Q26 16 24 16 L10 16 Z" fill="white"/>
+  <path d="M10 18 L22 18 Q24 18 24 20 Q24 22 22 22 L10 22 Z" fill="white" opacity="0.9"/>
+  <path d="M10 24 L24 24 Q26 24 26 26 Q26 28 24 28 L10 28 Z" fill="white"/>
+  <circle cx="28" cy="12" r="2.5" fill="url(#w-gold)"/>
+  <text x="46" y="27"
+        font-family="Plus Jakarta Sans, Inter, sans-serif"
+        font-size="20"
+        font-weight="800"
+        letter-spacing="-0.5"
+        fill="white">ECOPYE</text>
+</svg>

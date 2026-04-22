@@ -1,0 +1,94 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --background: 222 47% 7%;
+    --foreground: 210 40% 98%;
+    --card: 222 47% 10%;
+    --card-foreground: 210 40% 98%;
+    --primary: 160 84% 39%;
+    --primary-foreground: 355 100% 98%;
+    --secondary: 190 95% 43%;
+    --muted: 217 33% 17%;
+    --muted-foreground: 215 20% 65%;
+    --border: 217 33% 27%;
+    --ring: 160 84% 39%;
+    --destructive: 0 84% 60%;
+    --radius: 0.75rem;
+  }
+
+  * { @apply border-surface-border; }
+
+  body {
+    @apply bg-surface text-white font-sans antialiased;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
+  }
+
+  /* Safe area pour mobile */
+  .safe-top    { padding-top: env(safe-area-inset-top); }
+  .safe-bottom { padding-bottom: env(safe-area-inset-bottom); }
+}
+
+@layer components {
+  .btn-primary {
+    @apply w-full py-4 rounded-2xl bg-gradient-brand text-white font-semibold text-base
+           active:scale-95 transition-transform duration-150
+           disabled:opacity-50 disabled:cursor-not-allowed;
+  }
+
+  .btn-secondary {
+    @apply w-full py-4 rounded-2xl bg-surface-muted text-white font-semibold text-base
+           border border-surface-border active:scale-95 transition-transform duration-150;
+  }
+
+  .card {
+    @apply bg-surface-card rounded-3xl p-5 border border-surface-border/50;
+  }
+
+  .input-field {
+    @apply w-full bg-surface-muted border border-surface-border rounded-2xl
+           px-4 py-4 text-white text-base placeholder:text-gray-500
+           focus:outline-none focus:ring-2 focus:ring-brand-500
+           transition-all duration-200;
+  }
+
+  .skeleton {
+    @apply bg-surface-muted rounded-xl animate-shimmer;
+    background-image: linear-gradient(90deg, #1f2937 0%, #374151 50%, #1f2937 100%);
+    background-size: 200% 100%;
+  }
+
+  .pin-dot {
+    @apply w-4 h-4 rounded-full border-2 border-brand-500 transition-all duration-200;
+  }
+
+  .pin-dot.filled {
+    @apply bg-brand-500;
+  }
+
+  .amount-display {
+    @apply font-mono text-4xl font-bold tracking-tight;
+  }
+
+  .balance-card {
+    @apply rounded-3xl p-6 bg-gradient-brand relative overflow-hidden;
+  }
+
+  .bottom-nav {
+    @apply fixed bottom-0 left-0 right-0 bg-surface-card border-t border-surface-border
+           flex items-center justify-around px-4 safe-bottom;
+    height: calc(4rem + env(safe-area-inset-bottom));
+  }
+}
+
+/* Scrollbar invisible sur mobile */
+::-webkit-scrollbar { display: none; }
+* { scrollbar-width: none; }
+
+/* Feedback visuel sur tap */
+.tap-feedback { @apply active:opacity-70 active:scale-95 transition-all duration-100; }
