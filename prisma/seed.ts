@@ -234,7 +234,7 @@ async function main() {
         userId: n.userId,
         title: n.title,
         body: n.body,
-        type: n.type,
+        type: n.type as any,
         isRead: n.isRead,
         createdAt: new Date(Date.now() - n.daysAgo * 86400000),
       },
@@ -245,11 +245,11 @@ async function main() {
   // ── Audit logs ────────────────────────────────────────────────────────────
   await prisma.auditLog.createMany({
     data: [
-      { userId: youcef.id, action: 'login',        resource: 'User',        resourceId: youcef.id, status: 'SUCCESS', metadata: JSON.stringify({ ip: '192.168.1.1' }) },
-      { userId: youcef.id, action: 'transfer',     resource: 'Transfer',    status: 'SUCCESS', metadata: JSON.stringify({ amount: 15000 }) },
-      { userId: youcef.id, action: 'bill_payment', resource: 'BillPayment', status: 'SUCCESS', metadata: JSON.stringify({ provider: 'sonelgaz', amount: 4800 }) },
-      { userId: amina.id,  action: 'login',        resource: 'User',        resourceId: amina.id, status: 'SUCCESS', metadata: JSON.stringify({ ip: '10.0.0.5' }) },
-      { userId: karim.id,  action: 'transfer',     resource: 'Transfer',    status: 'SUCCESS', metadata: JSON.stringify({ amount: 8000 }) },
+      { userId: youcef.id, action: 'login' as any,        resource: 'User',        resourceId: youcef.id, status: 'SUCCESS' as any, metadata: { ip: '192.168.1.1' } },
+      { userId: youcef.id, action: 'transfer' as any,     resource: 'Transfer',    status: 'SUCCESS' as any, metadata: { amount: 15000 } },
+      { userId: youcef.id, action: 'bill_payment' as any, resource: 'BillPayment', status: 'SUCCESS' as any, metadata: { provider: 'sonelgaz', amount: 4800 } },
+      { userId: amina.id,  action: 'login' as any,        resource: 'User',        resourceId: amina.id, status: 'SUCCESS' as any, metadata: { ip: '10.0.0.5' } },
+      { userId: karim.id,  action: 'transfer' as any,     resource: 'Transfer',    status: 'SUCCESS' as any, metadata: { amount: 8000 } },
     ],
   })
   console.log('✅ Audit logs créés')
