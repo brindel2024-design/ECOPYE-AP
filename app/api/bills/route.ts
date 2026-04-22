@@ -48,7 +48,7 @@ export async function POST(req: NextRequest) {
       if (!pinOk) return NextResponse.json({ error: 'PIN incorrect' }, { status: 401 })
     }
 
-    if (!user.wallet || user.wallet.balance < parsedAmount) {
+    if (!user.wallet || Number(user.wallet.balance) < parsedAmount) {
       return NextResponse.json({ error: 'Solde insuffisant' }, { status: 400 })
     }
     if (user.wallet.isLocked) {

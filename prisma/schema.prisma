@@ -1,13 +1,78 @@
-// Schéma Prisma pour ECOPYE - Application de paiement algérienne
-// SQLite ne supporte pas les enums — on utilise String avec valeurs fixes
-
 generator client {
   provider = "prisma-client-js"
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+enum KycLevel {
+  basic
+  verified
+  premium
+}
+
+enum TransferStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  CANCELLED
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}
+
+enum PaymentMethod {
+  WALLET
+  CIB
+  BARIDIMOB
+  DAHABIA
+}
+
+enum OTPPurpose {
+  register
+  login
+  transfer
+  reset
+}
+
+enum CagnotteType {
+  charity
+  family
+  event
+}
+
+enum BillStatus {
+  PENDING
+  COMPLETED
+  FAILED
+}
+
+enum NotificationType {
+  transfer_received
+  transfer_sent
+  bill_paid
+  cagnotte
+  system
+}
+
+enum AuditAction {
+  login
+  transfer
+  bill_payment
+  cagnotte_contribution
+  face_verify
+  pin_verify
+}
+
+enum AuditStatus {
+  SUCCESS
+  FAILED
 }
 
 model User {
@@ -20,14 +85,11 @@ model User {
   avatar          String?
   isVerified      Boolean   @default(false)
   isActive        Boolean   @default(true)
-  // Biométrie faciale — descripteur chiffré AES-256-GCM
   faceDescriptor  String?
   faceEnrolledAt  DateTime?
-  // Authentification 2FA (TOTP — Google Authenticator)
   totpSecret      String?
   totpEnabled     Boolean   @default(false)
-  // Niveau KYC: basic | verified | premium
-  kycLevel        String    @default("basic")
+  kycLevel        KycLevel  @default(basic)
   createdAt       DateTime  @default(now())
   updatedAt       DateTime  @updatedAt
 
@@ -45,7 +107,7 @@ model User {
 model Wallet {
   id          String   @id @default(cuid())
   userId      String   @unique
-  balance     Float    @default(0)
+  balance     Decimal  @default(0) @db.Decimal(15, 2)
   currency    String   @default("DZD")
   isLocked    Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -57,43 +119,40 @@ model Wallet {
 }
 
 model Transfer {
-  id          String   @id @default(cuid())
+  id          String         @id @default(cuid())
   senderId    String
   receiverId  String
-  amount      Float
-  currency    String   @default("DZD")
+  amount      Decimal        @db.Decimal(15, 2)
+  currency    String         @default("DZD")
   description String?
-  // status: PENDING | COMPLETED | FAILED | CANCELLED
-  status      String   @default("PENDING")
-  reference   String   @unique @default(cuid())
-  fee         Float    @default(0)
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
+  status      TransferStatus @default(PENDING)
+  reference   String         @unique @default(cuid())
+  fee         Decimal        @default(0) @db.Decimal(15, 2)
+  createdAt   DateTime       @default(now())
+  updatedAt   DateTime       @updatedAt
 
-  sender      User     @relation("SentTransfers", fields: [senderId], references: [id])
-  receiver    User     @relation("ReceivedTransfers", fields: [receiverId], references: [id])
+  sender      User           @relation("SentTransfers", fields: [senderId], references: [id])
+  receiver    User           @relation("ReceivedTransfers", fields: [receiverId], references: [id])
 
   @@map("transfers")
 }
 
 model Payment {
-  id            String   @id @default(cuid())
+  id            String        @id @default(cuid())
   userId        String
   merchantName  String
   merchantId    String?
-  amount        Float
-  currency      String   @default("DZD")
+  amount        Decimal       @db.Decimal(15, 2)
+  currency      String        @default("DZD")
   description   String?
-  // status: PENDING | COMPLETED | FAILED | REFUNDED
-  status        String   @default("PENDING")
-  reference     String   @unique @default(cuid())
-  // paymentMethod: WALLET | CIB | BARIDIMOB | DAHABIA
-  paymentMethod String   @default("WALLET")
+  status        PaymentStatus @default(PENDING)
+  reference     String        @unique @default(cuid())
+  paymentMethod PaymentMethod @default(WALLET)
   qrCode        String?
-  createdAt     DateTime @default(now())
-  updatedAt     DateTime @updatedAt
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
 
-  user          User     @relation(fields: [userId], references: [id])
+  user          User          @relation(fields: [userId], references: [id])
 
   @@map("payments")
 }
@@ -110,27 +169,24 @@ model Session {
   @@map("sessions")
 }
 
-// Codes OTP temporaires (SMS) — inscription, connexion, transfert
 model OTPCode {
-  id        String   @id @default(cuid())
+  id        String     @id @default(cuid())
   phone     String
   code      String
-  // purpose: register | login | transfer | reset
-  purpose   String
-  isUsed    Boolean  @default(false)
+  purpose   OTPPurpose
+  isUsed    Boolean    @default(false)
   expiresAt DateTime
-  createdAt DateTime @default(now())
+  createdAt DateTime   @default(now())
 
   @@map("otp_codes")
 }
 
-// QR Codes marchands — statiques ou à usage unique
 model QRCode {
   id          String    @id @default(cuid())
   userId      String
-  amount      Float?
+  amount      Decimal?  @db.Decimal(15, 2)
   label       String?
-  payload     String    // JSON stringifié
+  payload     Json
   isStatic    Boolean   @default(false)
   isUsed      Boolean   @default(false)
   expiresAt   DateTime?
@@ -139,23 +195,21 @@ model QRCode {
   @@map("qr_codes")
 }
 
-// Cagnottes — caritatives, familiales ou événementielles
 model Cagnotte {
-  id            String    @id @default(cuid())
+  id            String       @id @default(cuid())
   creatorId     String
   title         String
   description   String?
-  // type: charity | family | event
-  type          String    @default("charity")
-  targetAmount  Float?
-  currentAmount Float     @default(0)
+  type          CagnotteType @default(charity)
+  targetAmount  Decimal?     @db.Decimal(15, 2)
+  currentAmount Decimal      @default(0) @db.Decimal(15, 2)
   imageUrl      String?
-  isPublic      Boolean   @default(true)
-  isActive      Boolean   @default(true)
-  shareCode     String    @unique
+  isPublic      Boolean      @default(true)
+  isActive      Boolean      @default(true)
+  shareCode     String       @unique
   deadline      DateTime?
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
 
   creator       User                   @relation("CreatedCagnottes", fields: [creatorId], references: [id])
   contributions CagnotteContribution[]
@@ -167,7 +221,7 @@ model CagnotteContribution {
   id          String   @id @default(cuid())
   cagnotteId  String
   userId      String
-  amount      Float
+  amount      Decimal  @db.Decimal(15, 2)
   message     String?
   isAnonymous Boolean  @default(false)
   createdAt   DateTime @default(now())
@@ -178,48 +232,41 @@ model CagnotteContribution {
   @@map("cagnotte_contributions")
 }
 
-// Paiements de factures (opérateurs, énergie, eau, télécom)
 model BillPayment {
-  id            String    @id @default(cuid())
+  id            String     @id @default(cuid())
   userId        String
-  // provider: mobilis | djezzy | ooredoo | sonelgaz | seaal | algerie_telecom | algerie_poste
   provider      String
   accountNumber String
-  amount        Float
-  // status: PENDING | COMPLETED | FAILED
-  status        String    @default("COMPLETED")
-  reference     String    @unique @default(cuid())
-  paidAt        DateTime  @default(now())
+  amount        Decimal    @db.Decimal(15, 2)
+  status        BillStatus @default(COMPLETED)
+  reference     String     @unique @default(cuid())
+  paidAt        DateTime   @default(now())
 
   @@map("bill_payments")
 }
 
-// Notifications in-app
 model Notification {
-  id        String   @id @default(cuid())
+  id        String           @id @default(cuid())
   userId    String
   title     String
   body      String
-  // type: transfer_received | transfer_sent | bill_paid | cagnotte | system
-  type      String   @default("system")
-  isRead    Boolean  @default(false)
-  data      String?  // JSON metadata optionnel
-  createdAt DateTime @default(now())
+  type      NotificationType @default(system)
+  isRead    Boolean          @default(false)
+  data      Json?
+  createdAt DateTime         @default(now())
 
   @@map("notifications")
 }
 
-// Journal d'audit des actions sensibles
 model AuditLog {
-  id         String   @id @default(cuid())
+  id         String      @id @default(cuid())
   userId     String?
-  // action: login | transfer | bill_payment | cagnotte_contribution | face_verify | pin_verify
-  action     String
+  action     AuditAction
   resource   String?
   resourceId String?
-  status     String   @default("SUCCESS") // SUCCESS | FAILED
-  metadata   String?  // JSON
-  createdAt  DateTime @default(now())
+  status     AuditStatus @default(SUCCESS)
+  metadata   Json?
+  createdAt  DateTime    @default(now())
 
   @@map("audit_logs")
 }

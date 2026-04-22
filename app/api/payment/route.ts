@@ -28,9 +28,9 @@ export async function POST(req: NextRequest) {
     if (wallet.isLocked) {
       return NextResponse.json({ error: 'Votre portefeuille est temporairement bloqué' }, { status: 403 })
     }
-    if (wallet.balance < amount) {
+    if (Number(wallet.balance) < amount) {
       return NextResponse.json({
-        error: `Solde insuffisant. Solde actuel: ${wallet.balance.toLocaleString()} DZD`,
+        error: `Solde insuffisant. Solde actuel: ${Number(wallet.balance).toLocaleString()} DZD`,
       }, { status: 400 })
     }
 

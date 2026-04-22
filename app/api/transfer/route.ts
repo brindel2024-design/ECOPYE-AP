@@ -57,7 +57,7 @@ export async function POST(req: NextRequest) {
     const total = amount + fee
 
     // Vérifier le solde
-    const senderBalance = sender.wallet?.balance ?? 0
+    const senderBalance = Number(sender.wallet?.balance ?? 0)
     if (senderBalance < total) {
       return NextResponse.json({
         error: `Solde insuffisant. Vous avez ${senderBalance.toLocaleString()} DZD, il faut ${total.toLocaleString()} DZD (dont ${fee.toLocaleString()} DZD de frais)`,

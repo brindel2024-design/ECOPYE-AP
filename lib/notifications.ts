@@ -1,12 +1,11 @@
+import { NotificationType, AuditAction, AuditStatus } from '@prisma/client'
 import { db } from '@/lib/db'
-
-type NotifType = 'transfer_received' | 'transfer_sent' | 'bill_paid' | 'cagnotte' | 'system'
 
 interface CreateNotifInput {
   userId: string
   title: string
   body: string
-  type: NotifType
+  type: NotificationType
   data?: Record<string, unknown>
 }
 
@@ -17,17 +16,17 @@ export async function createNotification(input: CreateNotifInput) {
       title: input.title,
       body: input.body,
       type: input.type,
-      data: input.data ? JSON.stringify(input.data) : null,
+      data: input.data ?? null,
     },
   })
 }
 
 export async function createAuditLog(input: {
   userId?: string
-  action: string
+  action: AuditAction
   resource?: string
   resourceId?: string
-  status?: 'SUCCESS' | 'FAILED'
+  status?: AuditStatus
   metadata?: Record<string, unknown>
 }) {
   return db.auditLog.create({
@@ -37,7 +36,7 @@ export async function createAuditLog(input: {
       resource: input.resource,
       resourceId: input.resourceId,
       status: input.status ?? 'SUCCESS',
-      metadata: input.metadata ? JSON.stringify(input.metadata) : null,
+      metadata: input.metadata ?? null,
     },
   })
 }

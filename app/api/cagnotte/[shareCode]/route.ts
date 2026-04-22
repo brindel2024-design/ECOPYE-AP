@@ -31,7 +31,7 @@ export async function GET(
   }
 
   const progress = cagnotte.targetAmount
-    ? Math.min(100, (cagnotte.currentAmount / cagnotte.targetAmount) * 100)
+    ? Math.min(100, (Number(cagnotte.currentAmount) / Number(cagnotte.targetAmount)) * 100)
     : null
 
   return NextResponse.json({ ...cagnotte, progress })
@@ -74,7 +74,7 @@ export async function POST(
       if (!ok) return NextResponse.json({ error: 'PIN incorrect' }, { status: 401 })
     }
 
-    if (!user.wallet || user.wallet.balance < parsedAmount) {
+    if (!user.wallet || Number(user.wallet.balance) < parsedAmount) {
       return NextResponse.json({ error: 'Solde insuffisant' }, { status: 400 })
     }
 

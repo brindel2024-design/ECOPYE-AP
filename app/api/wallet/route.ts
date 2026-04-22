@@ -19,7 +19,7 @@ export async function GET() {
     }
 
     return NextResponse.json({
-      balance: wallet.balance,
+      balance: Number(wallet.balance),
       currency: wallet.currency,
       isLocked: wallet.isLocked,
     })
@@ -54,7 +54,7 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       message: 'Recharge effectuée',
-      newBalance: wallet.balance,
+      newBalance: Number(wallet.balance),
       amount,
     })
   } catch (error) {
