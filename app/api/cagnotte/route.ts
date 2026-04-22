@@ -1,6 +1,7 @@
 import { authOptions } from '@/lib/auth'
 import { db } from '@/lib/db'
 import { generateShareCode } from '@/lib/crypto'
+import { CagnotteType } from '@prisma/client'
 import { getServerSession } from 'next-auth'
 import { NextRequest, NextResponse } from 'next/server'
 
@@ -19,7 +20,7 @@ export async function GET(req: NextRequest) {
       where: {
         isPublic: true,
         isActive: true,
-        ...(type && { type }),
+        ...(type && { type: type as CagnotteType }),
         ...(search && { title: { contains: search } }),
       },
       include: {
