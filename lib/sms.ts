@@ -21,7 +21,6 @@ export async function sendSMS(phone: string, message: string): Promise<void> {
 
   if (provider === 'twilio') {
     // eval() prevents webpack from bundling optional twilio dep at build time
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const twilio = (0, eval)('require')('twilio') as any
     const client = twilio(process.env.TWILIO_SID!, process.env.TWILIO_AUTH_TOKEN!)
     await client.messages.create({ body: message, from: process.env.TWILIO_PHONE!, to: phone })
