@@ -21,7 +21,7 @@ import dynamic from 'next/dynamic'
 
 const QRScanner = dynamic(() => import('@/components/QRScanner'), { ssr: false })
 
-type PayMethod = 'qr' | 'merchant' | 'receive'
+type PayMethod = 'qr' | 'merchant' | 'receive' | 'card'
 
 const merchants = [
   { id: 'djezzy',   name: 'Djezzy',         category: 'Téléphonie', icon: Smartphone, color: 'bg-red-50 text-red-500' },
@@ -182,6 +182,7 @@ export default function PayPage() {
             { key: 'merchant', label: 'Marchand' },
             { key: 'qr',       label: 'Scanner QR' },
             { key: 'receive',  label: 'Recevoir' },
+            { key: 'card',     label: 'Carte' },
           ] as const).map((m) => (
             <button
               key={m.key}
@@ -217,6 +218,28 @@ export default function PayPage() {
               </button>
             )
           })}
+        </div>
+      )}
+
+      {/* Paiement par carte — redirige vers la page dédiée */}
+      {step === 'select' && method === 'card' && (
+        <div className="bg-white rounded-3xl p-6 border border-gray-100 shadow-card text-center space-y-4">
+          <div className="w-20 h-20 rounded-2xl bg-brand-50 flex items-center justify-center mx-auto">
+            <CreditCard className="w-10 h-10 text-brand-600" />
+          </div>
+          <div>
+            <h3 className="font-bold text-gray-900">Payer par carte</h3>
+            <p className="text-sm text-gray-500 mt-1">
+              Utilisez votre carte CIB, DAHABIA ou BaridiMob pour payer en ligne
+            </p>
+          </div>
+          <button
+            onClick={() => router.push('/pay/card')}
+            className="w-full py-4 bg-gradient-brand text-white font-semibold rounded-2xl shadow-card hover:shadow-card-hover active:scale-95 transition-all flex items-center justify-center gap-2"
+          >
+            <CreditCard className="w-5 h-5" />
+            Payer par carte bancaire
+          </button>
         </div>
       )}
 
