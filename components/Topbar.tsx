@@ -13,7 +13,6 @@ import {
   X,
 } from 'lucide-react'
 import { useSession } from 'next-auth/react'
-import Image from 'next/image'
 import Link from 'next/link'
 import { useCallback, useEffect, useRef, useState } from 'react'
 
@@ -118,8 +117,14 @@ export default function Topbar({ onMenuClick, title }: TopbarProps) {
           {title ? (
             <h1 className="text-base font-bold text-ink-primary tracking-tight">{title}</h1>
           ) : (
-            <div className="bg-brand-900 rounded-xl px-3 py-1.5">
-              <Image src="/logo.png" alt="EcoPye" width={90} height={28} priority className="object-contain" />
+            <div className="flex items-center gap-2">
+              <div className="w-8 h-8 bg-gradient-brand rounded-xl flex items-center justify-center">
+                <Wallet className="w-4 h-4 text-white" />
+              </div>
+              <span className="font-bold text-lg">
+                <span className="text-ink-primary">ECO</span>
+                <span className="text-brand-500">PYE</span>
+              </span>
             </div>
           )}
         </div>

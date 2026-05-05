@@ -1,7 +1,6 @@
 'use client'
 
 import LanguageSwitcher from '@/components/LanguageSwitcher'
-import Image from 'next/image'
 import { useLanguage } from '@/lib/LanguageContext'
 import { cn } from '@/lib/utils'
 import {
@@ -50,10 +49,14 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
       )}>
         {/* Logo */}
         <div className="flex items-center justify-between p-5 border-b border-gray-100">
-          <div className="flex items-center">
-            <div className="bg-brand-900 rounded-xl px-3 py-2">
-              <Image src="/logo.png" alt="EcoPye" width={90} height={32} className="object-contain" />
+          <div className="flex items-center gap-2">
+            <div className="w-9 h-9 bg-gradient-brand rounded-xl flex items-center justify-center">
+              <Wallet className="w-4 h-4 text-white" />
             </div>
+            <span className="font-bold text-xl">
+              <span className="text-gray-900">ECO</span>
+              <span className="text-brand-500">PYE</span>
+            </span>
           </div>
           <button onClick={onClose} className="lg:hidden p-1.5 rounded-lg hover:bg-gray-100 text-gray-500">
             <X className="w-4 h-4" />
