@@ -3,6 +3,7 @@
 import BottomNav from '@/components/BottomNav'
 import Sidebar from '@/components/Sidebar'
 import Topbar from '@/components/Topbar'
+import { useLanguage } from '@/lib/LanguageContext'
 import { useSession } from 'next-auth/react'
 import { useRouter } from 'next/navigation'
 import { useEffect, useState } from 'react'
@@ -11,6 +12,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   const { data: session, status } = useSession()
   const router = useRouter()
   const [sidebarOpen, setSidebarOpen] = useState(false)
+  const { isRTL } = useLanguage()
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -34,7 +36,7 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
   if (!session) return null
 
   return (
-    <div className="min-h-screen bg-surface-50 flex">
+    <div className={`min-h-screen bg-surface-50 flex ${isRTL ? 'flex-row-reverse' : 'flex-row'}`}>
       {/* Sidebar desktop */}
       <div className="hidden lg:block w-64 flex-shrink-0">
         <Sidebar />

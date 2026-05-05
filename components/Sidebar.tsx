@@ -23,7 +23,7 @@ import { usePathname } from 'next/navigation'
 export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: () => void }) {
   const pathname = usePathname()
   const { data: session } = useSession()
-  const { t } = useLanguage()
+  const { t, isRTL } = useLanguage()
 
   const navItems = [
     { href: '/dashboard', icon: Home,      label: t('home')     },
@@ -42,10 +42,15 @@ export default function Sidebar({ open, onClose }: { open?: boolean; onClose?: (
       )}
 
       <aside className={cn(
-        'fixed top-0 left-0 h-full w-64 bg-white border-r border-gray-100 shadow-xl z-50',
+        'fixed top-0 h-full w-64 bg-white shadow-xl z-50',
         'flex flex-col transition-transform duration-300 ease-in-out',
+        isRTL
+          ? 'right-0 border-l border-gray-100'
+          : 'left-0 border-r border-gray-100',
         'lg:translate-x-0 lg:shadow-none',
-        open ? 'translate-x-0' : '-translate-x-full'
+        open
+          ? 'translate-x-0'
+          : isRTL ? 'translate-x-full' : '-translate-x-full'
       )}>
         {/* Logo */}
         <div className="flex items-center justify-between p-5 border-b border-gray-100">
